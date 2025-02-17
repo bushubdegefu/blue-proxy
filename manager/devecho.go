@@ -12,9 +12,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bushubdegefu/blue-proxy.com/configs"
-	"github.com/bushubdegefu/blue-proxy.com/helper"
-	"github.com/bushubdegefu/blue-proxy.com/observe"
+	"github.com/bushubdegefu/blue-proxy/configs"
+	"github.com/bushubdegefu/blue-proxy/helper"
+	"github.com/bushubdegefu/blue-proxy/observe"
 	"github.com/gorilla/websocket" // Needed for WebSocket support
 	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"

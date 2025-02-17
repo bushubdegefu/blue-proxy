@@ -1,4 +1,4 @@
-module github.com/bushubdegefu/blue-proxy.com
+module github.com/bushubdegefu/blue-proxy
 
 go 1.24.0
 

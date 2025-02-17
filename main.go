@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/bushubdegefu/blue-proxy.com/manager"
+	"github.com/bushubdegefu/blue-proxy/manager"
 )
 
 //	@title			Swagger  API

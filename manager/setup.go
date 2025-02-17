@@ -1,7 +1,7 @@
 package manager
 
 import (
-	"github.com/bushubdegefu/blue-proxy.com/helper"
+	"github.com/bushubdegefu/blue-proxy/helper"
 	"github.com/spf13/cobra"
 )
 
