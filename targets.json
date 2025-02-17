@@ -1,0 +1,8 @@
+{
+  "targets": [
+    "https://localhost:8700",
+    "https://localhost:8701",
+    "https://localhost:8702",
+    "https://localhost:8703"
+  ]
+}
