@@ -4,5 +4,5 @@ stash2.txt
 stash3.txt
 stash-working.txt
 stash-withsocket.txt
-README.md
+
 helper/reversehttp.go

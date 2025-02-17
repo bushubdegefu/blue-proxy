@@ -5,12 +5,15 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
+
+	"net/http/httptrace"
 
 	"github.com/bushubdegefu/blue-proxy/configs"
 	"github.com/bushubdegefu/blue-proxy/helper"
@@ -21,7 +24,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -189,6 +195,41 @@ func forwardWebSocketMessages(clientConn, targetConn *websocket.Conn) {
 	}
 }
 
+// CreateHTTPClientWithOTELAndTLS creates an HTTP client with both OpenTelemetry tracing and TLS configuration.
+func createHTTPClientWithOTELAndTLS(targetURL *url.URL, ctx context.Context) *http.Client {
+	// Create the base HTTP transport with TLS support
+	baseTransport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			ServerName:         targetURL.Hostname(),
+			InsecureSkipVerify: true, // Set to false in production for security
+		},
+	}
+
+	// Create a client transport that adds OTEL instrumentation
+	otelTransport := otelhttp.NewTransport(
+		baseTransport,
+		// Add client trace for OpenTelemetry
+		otelhttp.WithClientTrace(func(ctx context.Context) *httptrace.ClientTrace {
+			// We can return the client trace that will handle the span trace
+			return otelhttptrace.NewClientTrace(ctx)
+		}),
+	)
+
+	// Return the HTTP client with both OTEL and TLS functionality
+	return &http.Client{
+		Transport: otelTransport,
+		// Optional: Add redirect logic (to prevent too many redirects)
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("too many redirects")
+			}
+			// Log or handle redirect logic here if needed
+			fmt.Println("Redirected to:", req.URL)
+			return nil // Follow the redirect
+		},
+	}
+}
+
 func forwardRequestToTarget(c echo.Context, targetURL *url.URL) error {
 
 	target_url := fmt.Sprintf("%v%v", targetURL.String(), c.Request().RequestURI)
@@ -222,6 +263,23 @@ func forwardRequestToTarget(c echo.Context, targetURL *url.URL) error {
 			fmt.Println("Redirected to:", req.URL)
 			return nil // Follow the redirect
 		},
+	}
+
+	// Ensure OpenTelemetry tracing is enabled if otel is on on the client
+	if proxy_otel == "on" {
+		// Get the tracer from the context
+		tracer := c.Get("tracer").(*observe.RouteTracer)
+		ctx := tracer.Tracer
+
+		// Start a new span for the outgoing request
+		_, span := observe.AppTracer.Start(ctx, fmt.Sprintf("started-proxy-span-%v", rand.Intn(1000)))
+		defer span.End() // Ensure the span ends when the function finishes
+
+		// Inject the span context into the outgoing request context
+		ctx = trace.ContextWithSpan(ctx, span)
+
+		// Create the HTTP client with OTEL and TLS configuration
+		client = createHTTPClientWithOTELAndTLS(targetURL, ctx)
 	}
 
 	// Send the request to the target server

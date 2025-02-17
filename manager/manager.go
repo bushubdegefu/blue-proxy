@@ -1,5 +1,5 @@
-
 package manager
+
 import (
 	"fmt"
 	"os"
@@ -9,10 +9,10 @@ import (
 
 var (
 	goFrame = &cobra.Command{
-		Use:           "AppMan",
-		Short:         "AppMan – command-line tool to aid structure you fiber backend projects with gorm",
-		Long:          "Manager File Framed by go frame",
-		Version:       "0.0.0",
+		Use:           "Blue Proxy",
+		Short:         "Blue Proxy – Blue Proxy simple Echo reverse proxy",
+		Long:          "Blue Proxy – Blue Proxy simple Echo reverse proxy with support for multiple backends and load balancing(roudnd-robbin) and otel and tls support",
+		Version:       "0.1.0",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
