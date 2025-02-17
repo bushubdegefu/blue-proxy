@@ -53,11 +53,13 @@
     If you want to load config from a `.prod` file, replace "dev" with "prod" in the above command.
 
     To enable OpenTelemetry (OTel) tracing, use the `otel` flag (default is off):
+    ### Note:
+    If you enable TLS, you need to provide a certificate and key file. These files should be named `server.pem` (certificate) and `server-key.pem` (private key).
+
 
     ```bash
     blue-proxy run --env=dev --tls=on --otel=on  # Default TLS is off
     ```
-
     Alternatively, you can clone the repository and compile BlueProxy locally:
 
     ```bash
