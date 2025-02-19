@@ -1,6 +1,8 @@
 # BlueProxy
 
-**BlueProxy** is a simple and flexible reverse proxy server built using the [Echo](https://echo.labstack.com/) web framework in Go. It allows you to forward incoming HTTP and WebSocket requests to multiple target servers with support for load balancing, static file serving, WebSocket handling, and SSL/TLS encryption. Additionally, BlueProxy can be integrated with [OpenTelemetry](https://opentelemetry.io/) for distributed tracing and observability.
+
+BlueProxy is a simple and flexible reverse proxy server built using the [Echo](https://echo.labstack.com/) web framework in Go. It allows you to forward incoming HTTP and WebSocket requests to multiple target servers with support for load balancing, static file serving, WebSocket handling, and SSL/TLS encryption. Additionally, BlueProxy can be integrated with [OpenTelemetry](https://opentelemetry.io/) for distributed tracing and observability.
+
 ---
 ## Features
 
