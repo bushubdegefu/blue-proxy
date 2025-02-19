@@ -10,31 +10,37 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"net/http/httptrace"
 
 	"github.com/bushubdegefu/blue-proxy/configs"
 	"github.com/bushubdegefu/blue-proxy/helper"
+	"github.com/bushubdegefu/blue-proxy/logger"
 	"github.com/bushubdegefu/blue-proxy/observe"
 	"github.com/gorilla/websocket" // Needed for WebSocket support
 	"github.com/labstack/echo-contrib/echoprometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/labstack/gommon/log"
+	"github.com/madflojo/tasks"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"golang.org/x/time/rate"
 )
 
 var (
-	env        string
-	proxy_otel string
-	proxy_tls  string
-	devechocli = &cobra.Command{
+	env           string
+	proxy_otel    string
+	proxy_tls     string
+	proxy_logging string
+	devechocli    = &cobra.Command{
 		Use:   "run",
 		Short: "Run Simply blue proxy server",
 		Long:  "Run Simply blue proxy server",
@@ -76,10 +82,36 @@ func echo_run(env string) {
 
 	app := echo.New()
 
+	// adding file logger
+	logOutput := os.Stdout
+
+	if proxy_logging == "on" {
+
+		logOutput, _ = logger.Logfile()
+	}
+
+	app.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		Format: `{"time":"${time_rfc3339_nano}","id":"${id}","remote_ip":"${remote_ip}",` +
+			`"host":"${host}","method":"${method}","uri":"${uri}","user_agent":"${user_agent}",` +
+			`"status":${status},"error":"${error}","latency":${latency},"latency_human":"${latency_human}"` +
+			`,"bytes_in":${bytes_in},"bytes_out":${bytes_out}}` + "\n",
+		Output: logOutput,
+	}))
+
 	// Middleware stack
+	configLimit, _ := strconv.ParseFloat(configs.AppConfig.GetOrDefault("RATE_LIMIT_PER_SECOND", "50000"), 64)
+	rateLimit := rate.Limit(configLimit)
+
+	//  cross orign allow middleware
 	app.Use(middleware.CORS())
-	app.Use(echoprometheus.NewMiddleware("echo_blue"))
-	app.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(1000)))
+
+	//  rate limit middleware
+	app.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rateLimit)))
+
+	//  prometheus middleware
+	app.Use(echoprometheus.NewMiddleware("blue_proxy_v_0"))
+
+	// Recover middleware
 	app.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
 		StackSize: 1 << 10,
 		LogLevel:  log.ERROR,
@@ -90,7 +122,7 @@ func echo_run(env string) {
 		app.Use(otelechospanstarter)
 	}
 
-	// Setup Proxy
+	// Setup Proxy targets
 	targets, err := getting_URL()
 	if err != nil {
 		panic(err)
@@ -115,11 +147,14 @@ func echo_run(env string) {
 		return forwardRequestToTarget(c, target.URL)
 	})
 
+	// getting log clearing task
+	log_truncate := logger.ScheduledTasks()
+
 	// Start the server
 	go startServer(app)
 
 	// Graceful shutdown
-	waitForShutdown()
+	waitForShutdown(app, log_truncate)
 }
 
 func isWebSocketUpgrade(req *http.Request) bool {
@@ -324,10 +359,31 @@ func startServer(app *echo.Echo) {
 	}
 }
 
-func waitForShutdown() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	<-c
+// waitForShutdown listens for an interrupt signal (such as SIGINT) and gracefully shuts down the Echo app.
+func waitForShutdown(app *echo.Echo, log_truncate *tasks.Scheduler) {
+	// Create a context that listens for interrupt signals (e.g., Ctrl+C).
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	// Ensure the stop function is called when the function exits to clean up resources.
+	defer stop()
+
+	// Block and wait for an interrupt signal (this will block until the signal is received).
+	<-ctx.Done()
+
+	// Once the interrupt signal is received, create a new context with a 10-second timeout.
+	// This will allow time for any active requests to complete before forcing shutdown.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel() // Ensure the cancel function is called when the context is no longer needed.
+
+	// Attempt to gracefully shut down the Echo server.
+	// If an error occurs during the shutdown process, log the fatal error.
+	if err := app.Shutdown(ctx); err != nil {
+		app.Logger.Fatal(err)
+	}
+
+	// Truncate the log file after shutdown.
+	log_truncate.Stop()
+
+	// Log a message indicating the server is being shut down gracefully.
 	fmt.Println("Gracefully shutting down...")
 }
 
@@ -367,5 +423,6 @@ func init() {
 	devechocli.Flags().StringVar(&env, "env", "help", "Which environment to run for example prod or dev")
 	devechocli.Flags().StringVar(&proxy_otel, "otel", "help", "Turn on/off OpenTelemetry tracing")
 	devechocli.Flags().StringVar(&proxy_tls, "tls", "help", "Turn on/off tls, \"on\" for auto on and \"off\" for auto off")
+	devechocli.Flags().StringVar(&proxy_logging, "logging", "help", "Turn on/off output to file, \"on\" for outputiing log to file")
 	goFrame.AddCommand(devechocli)
 }

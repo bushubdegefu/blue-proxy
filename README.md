@@ -1,9 +1,7 @@
 # BlueProxy
 
 **BlueProxy** is a simple and flexible reverse proxy server built using the [Echo](https://echo.labstack.com/) web framework in Go. It allows you to forward incoming HTTP and WebSocket requests to multiple target servers with support for load balancing, static file serving, WebSocket handling, and SSL/TLS encryption. Additionally, BlueProxy can be integrated with [OpenTelemetry](https://opentelemetry.io/) for distributed tracing and observability.
-
 ---
-
 ## Features
 
 - **Reverse Proxy**: Forwards requests to multiple backend servers with support for load balancing.
@@ -58,7 +56,7 @@
 
 
     ```bash
-    blue-proxy run --env=dev --tls=on --otel=on  # Default TLS is off
+    blue-proxy run --env=dev --tls=on --otel=on  # Default TLS is off as well as the otel tracing
     ```
     Alternatively, you can clone the repository and compile BlueProxy locally:
 
@@ -68,47 +66,55 @@
     go build -tags netgo -ldflags '-s -w' -o blue-proxy
     ```
 
----
+5. **Rate Limiting**
 
-## Configuration
+    BlueProxy allows you to set rate limits using environment variables. The default rate limit is set to 50000 requests per second. You can adjust this limit by modifying the `RATE_LIMIT_PER_SECOND` variable in your environment configuration file.
 
-BlueProxy relies on the following configuration files and environment variables:
+6. **Logging**
 
-### `target.json`
+    BlueProxy logs output file to  blue-proxy log. to enable file logging, set the flag to logging "on" default is off.
 
-This file contains a list of target backend servers to which BlueProxy will forward requests. Each target should be a valid URL.
+7. **Configuration**
 
-#### Example `.dev.env` File:
-```env
-APP_NAME=dev
-HTTP_PORT=8700
-TEST_NAME="Development Environment"
-BODY_LIMIT=70
-READ_BUFFER_SIZE=40
-RATE_LIMIT_PER_SECOND=5000
+    BlueProxy allows you to configure various settings using environment variables. These settings include the application name, HTTP port, test name, body limit, read buffer size, rate limit per second, and more.
+l
 
-# Observability settings
-TRACE_EXPORTER=jaeger
-TRACER_HOST=localhost
-TRACER_PORT=14317
 
-TARGET_HOST_NAME=somedomain.com
-```
+  #### Example `.dev.env` File:
+  ```env
+  APP_NAME=dev
+  HTTP_PORT=8700
+  TEST_NAME="Development Development"
+  BODY_LIMIT=70
+  READ_BUFFER_SIZE=40
+  RATE_LIMIT_PER_SECOND=50000
+  #Interval in minutes
+  CLEAR_LOGS_INTERVAL=1
 
-#### Example `target.json`:
+  #Observability settings
+  TRACE_EXPORTER=jaeger
+  TRACER_HOST=localhost
+  TRACER_PORT=14317
 
-```json
-{
-  "targets": [
-    "http://serviceA.com",
-    "http://serviceB.com"
-  ]
-}
+  TARGET_HOST_NAME=somedomain.com
 
-```
+  ```
+
+  #### Example `target.json`:
+  This file contains a list of target backend servers to which BlueProxy will forward requests. Each target should be a valid URL.
+
+  ```json
+  {
+    "targets": [
+      "http://serviceA.com",
+      "http://serviceB.com"
+    ]
+  }
+
+  ```
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+  This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ### MIT License
